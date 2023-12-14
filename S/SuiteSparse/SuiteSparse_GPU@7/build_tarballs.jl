@@ -18,6 +18,14 @@ cd $WORKSPACE/srcdir/SuiteSparse
 # Needs cmake >= 3.22 provided by jll
 apk del cmake
 
+# Ensure CUDA is on the path
+export CUDA_HOME=${WORKSPACE}/destdir/cuda;
+export PATH=$PATH:$CUDA_HOME/bin
+export CUDACXX=$CUDA_HOME/bin/nvcc
+
+# nvcc thinks the libraries are located inside lib64, but the SDK actually has them in lib
+ln -s ${CUDA_HOME}/lib ${CUDA_HOME}/lib64
+
 # Disable OpenMP as it will probably interfere with blas threads and Julia threads
 FLAGS+=(INSTALL="${prefix}" INSTALL_LIB="${libdir}" INSTALL_INCLUDE="${prefix}/include" CFOPENMP=)
 
@@ -106,7 +114,8 @@ push!(dependencies, Dependency("SuiteSparse_jll"))
 for platform in platforms
     should_build_platform(triplet(platform)) || continue
 
-    cuda_deps = CUDA.required_dependencies(platform)
+    # Need the static SDK to let CMake detect the compiler properly
+    cuda_deps = CUDA.required_dependencies(platform, static_sdk=true)
 
     build_tarballs(ARGS, name, version, sources, script, [platform],
                    gpu_products, [dependencies; cuda_deps]; lazy_artifacts=true,
